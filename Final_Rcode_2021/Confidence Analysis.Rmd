@@ -1,0 +1,1244 @@
+---
+title: "Survey Two - Analysis"
+author: "Hari VS"
+Date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  pdf_document: default
+---
+
+```{r results='hide', warning=FALSE, include=FALSE}
+library(tidyverse) #for tidyr and new tidy version coding
+library(dplyr) #for pipe usage
+library(Hmisc) #for rcorr function
+library(emmeans) #for comparing factors after MLRs
+library(effsize) #for cohen'd values and other effect sizes.
+library(broom) #for comparing multiple t-tests, multiple LRs
+library(cowplot) #for plotting multiple ggplots in a grid
+```
+
+# _____________________________________________________________________________
+### CLEAN DATA OBTAINED FROM CLEANING.RMD
+### THIS FILE CONTAINS ONLY THE CODE FOR ANALYSIS
+# _____________________________________________________________________________
+
+# _____________________________________________________________________________
+### BEGIN OF ANALYSIS PART 1
+####    1. Each person is an observation
+            1a. Overview of the variables through plots
+            1b. Paired t-tests on *NO_AI vs AI* conditions
+            1c. Two sample t-tests on *NO_BAR vs BAR* conditions (uncertainty)
+            1d. Simple linear regressions
+            1e. Mulitple linear regressions
+# _____________________________________________________________________________
+
+#### Importing datasets
+```{r warning=FALSE}
+# 1. person - both plants and animals included. All stimulus
+#Dataset - averages - each observation is a person
+person <- read_csv("Datasets/Data_cleaned_person.csv")
+#Converting the dataframe to a tibble
+person <- as_tibble(person)
+
+
+# 2. plants_person - only plant stimulus. 
+#Dataset - averages - each observation is a person
+plants_person <- read_csv("Datasets/Data_cleaned_plants_person.csv")
+#Converting the dataframe to a tibble
+plants_person <- as_tibble(plants_person)
+
+
+# 3. animals_person - only animal stimulus
+#Dataset - averages - each observation is a person
+animals_person <- read_csv("Datasets/Data_cleaned_animals_person.csv")
+#Converting the dataframe to a tibble
+animals_person <- as_tibble(animals_person)
+```
+
+### Overview Statistics - Mean, Median, Mode, and Interquantile Ranges
+```{r}
+#Summary Statistic for the overall study
+summary(person)
+```
+
+
+```{r}
+#Subsetting to multiple tibbles for ease of use
+#contains only reponses measured for no-AI condition
+person_noAI <- subset(person, AI == 0)
+
+#Responses measured for all AI-conditions
+person_AI <- subset(person, AI == 1)
+
+#responses of participants who were not provided uncertainty information
+person_nobar <- subset(person, AI == 1) %>% 
+  filter(bar == 0)
+
+#responses of participants who received uncertainty information
+person_bar <- subset(person, AI ==1) %>% 
+  filter(bar == 1)
+```
+
+## EXPLORATORY PLOTS
+
+### confidence Plots
+The average confidence of the participants was `r round(mean(person_noAI$confidence),2)` (SD = `r round(sd(person_noAI$confidence),2)`), when no AI 
+recommendations were provided. In comparison, when AI recommendations were 
+provided, the average confidence was `r round(mean(person_AI$confidence),2)`(SD = `r round(sd(person_AI$confidence),2)`). The
+means and the plots clearly indicate the positive relationship between AI 
+recommendations and confidence of the participants.
+
+The average confidence of the participants was `r round(mean(person_nobar$confidence),2)` (SD = `r round(sd(person_nobar$confidence),2)`), when 
+uncertainty information was not provided. In comparison, when the uncertainty
+information were provided, the average confidence was `r round(mean(person_bar$confidence),2)` (SD = `r round(sd(person_bar$confidence),2)`).
+The means and the plots show that confidence of the participants increase 
+slightly when uncertainty information is provided.
+```{r}
+par(mfrow=c(2,2))
+
+#confidence percentage for baseline - No AI condition
+hist(person_noAI$confidence, #choosing column in a dataset
+     main = "(a) No-AI confidence", #main plot label
+     xlab = "Percentage of correct answers", #x-axis label
+     ylab = "No. of participants", #y-axis label
+     ylim = c(0,100), xlim = c(0,1)) #limits for x- & y-axis in the plot
+
+#confidence percentage in all AI Condition
+hist(person_AI$confidence, main = "(b) All-AI confidence",
+     xlab = "Percentage of correct answers", ylab = "No. of participants",
+     ylim = c(0,100), xlim = c(0,1))
+
+#confidence percentage in AI Condition without bars
+hist(person_nobar$confidence, 
+     main = "(c) Post-AI confidence w/o Uncertainty",
+     xlab = "Percentage of correct answers", ylab = "No. of participants",
+     ylim = c(0,60), xlim = c(0,1))
+
+#confidence percentage in AI with Uncertianty Information (AI_bars)
+hist(person_bar$confidence, main ="(d) Post-AI confidence with Uncertainty",
+     xlab = "Percentage of correct answers", ylab = "No. of participants",
+     ylim = c(0,60), xlim = c(0,1))
+
+par(mfrow=c(1,1))
+```
+
+### Age
+The average age of the participants was `r round(mean(person_noAI$age),2)` years with SD = `r round(sd(person_noAI$age),2)`.
+The youngest person to take the survey was `r round(min(person_noAI$age),2)` years old. The oldest person to
+take the survey was `r round(max(person_noAI$age),2)` years old. The age of the participants was not
+distributed evenly as it can be seen in the figure below (left). Hence, age is 
+log scaled after which the distribution is relatively better. On all linear
+regression models, the age will be introduced as a variable in a log scale.  
+
+```{r}
+#Spread of AGE
+par(mfrow=c(1,2))
+
+hist(person_noAI$age, #choosing column in a dataset to plot
+     main = "Age of Participants", #main plot title
+     xlab = "Age", #x-axis title 
+     ylim = c(0,60), xlim = c(0,70)) #both axes limits.
+
+hist(log(person_noAI$age), main = "Age of Participants on log scale",
+     xlab = "Age log scaled", ylim = c(0,60), xlim = c(2,5))
+```
+
+### Time taken
+The average time spent per question by the participants was `r round(mean(person_noAI$time_taken),2)` (SD = `r round(sd(person_noAI$time_taken),2)`),
+when no AI recommendations were provided. In comparison, when AI 
+recommendations were provided, the average time spent per question was `r round(mean(person_AI$time_taken),2)` 
+(SD = `r round(sd(person_AI$time_taken),2)`). The participants took less time to identify
+the stimulus when AI recommendations were provided. The standard deviation also
+reduces significantly when AI recommendations are provided. 
+
+The average time spent per question by the participants was `r round(mean(person_nobar$time_taken),2)` (SD = `r round(sd(person_nobar$time_taken),2)`),
+when  uncertainty information was not provided. In comparison, when the uncertainty
+information were provided, the average time spent per question was `r round(mean(person_bar$time_taken),2)` 
+(SD = `r round(sd(person_bar$time_taken),2)`). SImilar to confidence ratings, the effect of 
+uncertainty information on time taken is unclear.
+```{r}
+par(mfrow=c(2,2))
+
+#Average Time spent per question for baseline - No AI condition
+hist(person_noAI$time_taken,main="(a) No-AI Average Time per question",
+     xlab = "Average Time Taken", ylab = "No. of participants",
+     ylim = c(0,150), xlim = c(0,120), breaks = "FD")
+
+#Average Time spent per question in all AI Condition
+hist(person_AI$time_taken, main ="(b) All-AI Average Time per question",
+     xlab = "Average Time Taken", ylab = "No. of participants",
+     ylim = c(0,150), xlim = c(0,120))
+
+#Average Time spent per question in AI Condition without bars
+hist(person_nobar$time_taken, 
+     main = "(c) AI-nobar Average Time per question",
+     xlab = "Average Time Taken", ylab = "No. of participants",
+     ylim = c(0,80), xlim = c(0,60))
+
+#Average Time spent per question in AI with Uncertianty Information (AI_bars)
+hist(person_bar$time_taken, main ="(d) AI-Bar Average Time per question",
+     xlab = "Average Time Taken", ylab = "No. of participants",
+     ylim = c(0,80), xlim = c(0,60))
+
+par(mfrow=c(1,1))
+```
+
+### Task Difficulty
+The overall average task difficulty rating in the experiment was `r round(mean(person_noAI$Task_diff_num, na.rm = T),2)` (SD = `r round(sd(person_noAI$Task_diff_num, na.rm = T),2)`).
+The average task difficulty rating for participants that did not receive 
+uncertainty information was `r round(mean(person_nobar$Task_diff_num, na.rm = T),2)` (SD = `r round(sd(person_nobar$Task_diff_num, na.rm = T),2)`) compared to participants who 
+received the uncertainty information; mean = `r round(mean(person_bar$Task_diff_num, na.rm = T),2)` (SD = `r round(sd(person_bar$Task_diff_num, na.rm = T),2)`).  
+
+Perceived task difficulty ratings are not normaly distributed. Log 
+transformations will not help either due to irrational spread of the responses.
+```{r}
+par(mfrow=c(2,2))
+
+#plotting task difficulty AI vs No-AI
+hist(person_noAI$Task_diff_num, 
+     main = "Overall Task Difficulty Ratings", 
+     xlab = "Task Difficulty", ylab = "No. of Participants", breaks = "FD",
+     ylim = c(0,100), xlim = c(0,5))
+
+#plotting task difficulty AI-nobars
+hist(person_nobar$Task_diff_num, 
+     main = "Task Difficulty Rating - AI-nobars", 
+     xlab = "Task Difficulty", ylab = "No. of Participants", breaks = "FD",
+     ylim = c(0,50), xlim = c(0,5))
+
+#plotting task difficulty AI-bars
+hist(person_bar$Task_diff_num, 
+     main = "Task Difficulty Rating - AI-bars", 
+     xlab = "Task Difficulty", ylab = "No. of Participants", breaks = "FD",
+     ylim = c(0,50), xlim = c(0,5))
+
+```
+
+### AI Trustworthiness
+The overall average AI trust ratings in the experiment was `r round(mean(person_noAI$AI_trust_num, na.rm = T),2)` (SD = `r round(sd(person_noAI$AI_trust_num, na.rm = T),2)`).
+The average AI trust rating for participants that did not receive uncertainty
+information was `r round(mean(person_nobar$AI_trust_num, na.rm = T),2)` (SD = `r round(sd(person_nobar$AI_trust_num, na.rm = T),2)`) compared to participants who 
+received the uncertainty information; mean = `r round(mean(person_bar$AI_trust_num, na.rm = T),2)` (SD = `r round(sd(person_bar$AI_trust_num, na.rm = T),2)`).  
+Similiar to task difficulty, AI trustworthyness is also distributed without a
+pattern. A log transformation was performed but not included as it did not help.  
+```{r}
+par(mfrow=c(2,2))
+
+#plotting AI Trust Ratings for AI vs No-AI
+hist(person_noAI$AI_trust_num, 
+     main = "Overall AI Trustworthy ratings by participants",
+     xlab = "AI Trust Ratings", ylab = "No. of Participants", breaks = "FD",
+     ylim = c(0,100), xlim = c(0,5))
+
+#plotting AI Trust Ratings for AI-nobars
+hist(person_nobar$AI_trust_num, 
+     main = "AI Trustworthy ratings - AI-nobars",
+     xlab = "AI Trust Ratings", ylab = "No. of Participants", breaks = "FD",
+     ylim = c(0,100), xlim = c(0,5))
+
+#plotting AI Trust Ratings for AI-nobars
+hist(person_bar$AI_trust_num, 
+     main = "AI Trustworthy ratings - AI-bars",
+     xlab = "AI Trust Ratings", ylab = "No. of Participants", breaks = "FD",
+     ylim = c(0,50), xlim = c(0,5))
+```
+
+### Domain Knowledge
+Responses to Animal domain knowledge question is normally distributed whereas,
+responses to Plant domain knowledge question is not. A log
+transformation was performed which did not provide the satisfactory distribution.
+Therefore, plant domain knowledge will be represented in binary terms where 
+participants who rated their knowledge as "not well at all" will be given 0, 
+and the rest will be denoted with 1.
+```{r}
+par(mfrow=c(2,2))
+
+#plotting ANIMAL Domain Knowledge ratings
+hist(person_noAI$Dmn_know_a_num, 
+     main = "Overall Animal Domain Knowledge\nratings by participants",
+     xlab = "Animal - Domain Knowledge Ratings", ylab = "No. of Participants",
+     breaks = "FD")
+
+#plotting PLANT Domain Knowledge ratings
+hist(person_noAI$Dmn_know_p_num, 
+     main = "Overall Animal Domain Knowledge\nratings by participants",
+     xlab = "Animal - Domain Knowledge Ratings", ylab = "No. of Participants",
+     breaks = "FD")
+```
+
+### Box-Plots and T-test
+#### Comparing confidence Pre-AI and Post-AI
+The box plot clearly indicates a positive change in confidence when participants
+were provided AI recommendations. The t-test results along with the box plots
+shows that AI recommendations will improve confidence.
+The repeated measures paired t-test indicates that confidence was significantly
+higher when AI information was provided (M = 0.187). The significant t-test 
+with t(200) = -30.426, p < 0.0001. An effect size d = -2.36 proves the change 
+in confidence is most likely not due to chance.
+```{r}
+#Boxplot
+boxplot(person_noAI$confidence,#box plot. Comparing two sets of data
+        person_AI$confidence, #comparing no-AI vs AI confidence
+        col= topo.colors(2), #mentioning colors of the boxes
+        main = "AI vs No-AI confidence", #main title
+        ylab = "confidence Percentage") #y-axis title
+legend(.5,.65, #legend, mentioning where in the graph to place
+       inset = 0.2, c("No-AI","AI"), #mentioning text for the legend
+       fill = topo.colors(2), cex=0.8) #providing color info for the boxes.
+
+#Average confidence in AI vs no_AI
+t.test(person_noAI$confidence, person_AI$confidence, #t-test to compare.
+       paired = TRUE) #paired is true as this is a within-subjects comparison
+
+#Effect Size of the t.test
+cohen.d(person_noAI$confidence, person_AI$confidence, #effect size of the comparison
+        paired = TRUE)
+```
+
+#### Comparing confidence in AI-nobar and AI-bar conditions
+By looking at the box plot, it is clear confidence of the participants who
+received uncertainty information performed better compared to participants
+who did not. The average confidence changed significantly when comparing AI vs
+No-AI performance but the change, although significant, is less pronounced,
+when comparing between participants receiving uncertainty information vs
+participants not receiving uncertainty information.  
+The Two sample t-test indicates that confidence was significantly higher when
+uncertainty information was provided (M = 0.572) compared to when uncertinaty
+information was not provided (M = 0.515). The significant t-test with
+t(147.6) = -5.40, p < 0.0001. An effect size d = -0.77 proves the change in
+confcuracy is most likely not due to chance.
+```{r}
+#Boxplot
+boxplot(person_nobar$confidence, person_bar$confidence,
+        col= topo.colors(2),
+        main = "AI-nobar vs AI-bar confidence",
+        ylab = "confidence Percentage")
+legend(.45,.70, inset = 0.2, c("AI-nobar","AI-bar"), fill = topo.colors(2), cex=0.8)
+
+#Average confidence in no-bar vs bar
+t.test(person_nobar$confidence, person_bar$confidence)
+
+#Effect Size of the t.test
+cohen.d(person_nobar$confidence, person_bar$confidence)
+```
+
+#### Domain Knowledge interaction with AI and Bar vs. confidence
+Domain Knoelwedge interaction with AI and Bar for animals
+```{r}
+#Filtering for AI vs No-AI
+animals_person_noAI <- filter(animals_person, AI == 0)
+animals_person_AI <- filter(animals_person, AI == 1)
+
+#Filtering for Bar vs No-bar
+animals_person_bar <- filter(animals_person_AI, bar == 1)
+animals_person_nobar <- filter(animals_person_AI, bar == 0)
+
+animal_dmn_AI_plot <- ggplot(animals_person) +
+  aes(x = Dmn_know_a_num, y = confidence, color = AI) +
+  geom_point(color = "grey") + 
+  geom_smooth(method = "lm", data = animals_person_noAI) + 
+  geom_smooth(method = "lm", data = animals_person_AI) + 
+  xlab("Knowledge") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Animals Knowledge*AI vs confidence") #main plot title
+
+animal_dmn_bar_plot <- ggplot(animals_person_AI) +
+  aes(x = Dmn_know_a_num, y = confidence, color = bar) +
+  geom_point(color = "grey") + 
+  geom_smooth(method = "lm", data = animals_person_nobar) + 
+  geom_smooth(method = "lm", data = animals_person_bar) + 
+  xlab("Knowledge") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Animals Knowledge*Bar vs confidence") #main plot title
+
+#Filtering for AI vs No-AI
+plants_person_noAI <- filter(plants_person, AI == 0)
+plants_person_AI <- filter(plants_person, AI == 1)
+
+#Filtering for Bar vs No-bar
+plants_person_bar <- filter(plants_person_AI, bar == 1)
+plants_person_nobar <- filter(plants_person_AI, bar == 0)
+
+plant_dmn_AI_plot <- ggplot(plants_person) +
+  aes(x = Dmn_know_p_num, y = confidence, color = AI) +
+  geom_point(color = "grey") + 
+  geom_smooth(method = "lm", data = plants_person_noAI) + 
+  geom_smooth(method = "lm", data = plants_person_AI) + 
+  xlab("Knowledge") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Plants Knowledge*AI vs confidence") #main plot title
+
+plant_dmn_bar_plot <- ggplot(plants_person_AI) +
+  aes(x = Dmn_know_p_num, y = confidence, color = bar) +
+  geom_point(color = "grey") + 
+  geom_smooth(method = "lm", data = plants_person_nobar) + 
+  geom_smooth(method = "lm", data = plants_person_bar) + 
+  xlab("Knowledge") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Plants Knowledge*Bar vs confidence") #main plot title
+
+cowplot::plot_grid(animal_dmn_AI_plot, animal_dmn_bar_plot, plant_dmn_AI_plot, plant_dmn_bar_plot)
+```
+
+
+```{r}
+stim_AI_int_plot <- ggplot(animals_person) +
+  aes(x = Dmn_know_a_num, y = confidence, color = AI) +
+  geom_point(color = "grey") + 
+  geom_smooth(method = "lm", data = animals_person_noAI) + 
+  geom_smooth(method = "lm", data = animals_person_AI) + 
+  xlab("Knowledge") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Animals Knowledge*AI vs confidence") #main plot title
+```
+
+
+
+
+
+```{r}
+par(mfrow=c(2,2))
+
+boxplot(confidence ~ Dmn_know_a_num*AI,
+        col= topo.colors(6),
+        main = "Animal Knowledge*AI vs confidence",
+        ylab = "confidence Percentage", data = animals_person)
+boxplot(confidence ~ Dmn_know_a_num*bar,
+        col= topo.colors(6),
+        main = "Animal Knowledge*Bar vs confidence",
+        ylab = "confidence Percentage", data = animals_person)
+
+boxplot(confidence ~ Dmn_know_p_num*AI,
+        col= topo.colors(2),
+        main = "Plant Knowledge*AI vs confidence",
+        ylab = "confidence Percentage", data = plants_person)
+boxplot(confidence ~ Dmn_know_p_num*bar,
+        col= topo.colors(2),
+        main = "Plant Knowledge*Bar vs confidence",
+        ylab = "confidence Percentage", data = plants_person)
+
+```
+
+
+
+
+#### AI-usefulness rating vs confidence
+The mean confidence of the partcipants vs perceived AI-usefulness rating does not
+show a linear relationship. The fitted line is almost horizontal. The data 
+points also do not indicate any relationship. But the analysis is split between
+plants and animals images. When looking at separate datasets, it is clear that
+there exists a linear relationship between AI usefulness ratings and confidence.
+
+```{r}
+# AI-use vs. confidence - all AI- conditions
+AI_use_plot.1 <- filter(plants_person, AI ==1) %>%
+  ggplot(aes(x=AI_use, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived AI-usefulness rating") +
+  ylab("Mean confidence - Plants") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("AI_use vs Plants Mean confidence") #main plot title
+
+# AI-use vs. confidence - all AI- conditions
+AI_use_plot.2 <- filter(animals_person, AI ==1) %>%
+  ggplot(aes(x=AI_use, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived AI-usefulness rating") +
+  ylab("Mean confidence - Animals") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("AI_use vs Animals Mean confidence") #main plot title
+
+
+cowplot::plot_grid(AI_use_plot.1, AI_use_plot.2)
+```
+
+#### Time taken vs confidence
+There is a clear outlier that is affecting the fit of the data. To find a 
+relationship between these two variables, the outlier will be removed. During
+the analysis, linear models will be fit with and without the outlier to see its
+effect on the results.
+```{r}
+#Time taken vs confidence
+time_taken_plot1 <- ggplot(person_noAI, aes(x=time_taken, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #adjusting x-axis title place 
+  xlab("Average time-taken per stimulus") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Relationship between average time taken per stimulus
+          and confidence of the participants") #main plot title
+
+time_taken_plot1
+```
+
+There is no clear relationship between time taken and confidence in AI or No-AI
+conditions. Even though an extreme outlier was removed, new outliers will come
+up since the range in average time taken in wide. Graphs supports that as
+well. Based on the plots generated, time taken does not have any effect on the
+confidence of the participants.  
+```{r}
+#replotting the same graph without the outlier
+person_noAI2 <- person_noAI[-201,]
+
+#Time taken in no-AI condition
+time_taken_plot_1 <- ggplot(person_noAI2, aes(x=time_taken, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #adjusting x-axis title place 
+  xlab("Average time-taken per stimulus\n(in seconds)") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("confidence vs time-taken\nNo-AI recommendations") #main plot title
+
+#Time-taken in AI-condition
+time_taken_plot_2 <- ggplot(person_AI, aes(x=time_taken, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #adjusting x-axis title place 
+  xlab("Average time-taken per stimulus\n(in seconds)") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("confidence vs time-taken in\nall AI conditions") #main plot title
+
+
+cowplot::plot_grid(time_taken_plot_1, time_taken_plot_2)
+
+```
+
+
+#### Task Difficulty vs confidence
+Compared to No-AI condition, the confidence should improve in all AI conditions 
+when the perceived task difficulty rating increases. confidence for participants
+placed in AI-nobar condition increases as participants task difficulty rating 
+increases. However, there does not seem to be any relationship between their
+perceived ratings and confidence for participants placed in AI-bars condition.
+```{r}
+Task_diff_plot_1 <- ggplot(person_noAI, aes(x=Task_diff_num, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived Task Difficulty rating") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Task Difficulty vs confidence\nin No-AI Condition") #main plot title
+
+Task_diff_plot_2 <- ggplot(person_AI, aes(x=Task_diff_num, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived Task Difficulty rating") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Task Difficulty vs confidence\nin All-AI Condition") #main plot title
+
+Task_diff_plot_3 <- ggplot(person_nobar, aes(x=Task_diff_num, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived Task Difficulty rating") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Task Difficulty vs confidence\nin Nobars Condition") #main plot title
+
+Task_diff_plot_4 <- ggplot(person_bar, aes(x=Task_diff_num, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived Task Difficulty rating") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Task Difficulty vs confidence\nin Bars Condition") #main plot title
+
+cowplot::plot_grid(Task_diff_plot_1, Task_diff_plot_2, Task_diff_plot_3, Task_diff_plot_4)
+```
+
+#### Perceived AI trustworthyness ratings vs confidence
+There is no apparent relationship between AI trustworthyness and confidence in
+any and all conditions. 
+```{r}
+AI_trust_plot_1 <- ggplot(person_noAI, aes(x=AI_trust_num, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived AI Trustworthyness rating") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("AI Trustworthyness vs confidence\nin No-AI Condition") #main plot title
+
+AI_trust_plot_2 <- ggplot(person_AI, aes(x=AI_trust_num, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived AI Trustworthyness rating") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("AI Trustworthyness vs confidence\nin All-AI Condition") #main plot title
+
+AI_trust_plot_3 <- ggplot(person_nobar, aes(x=AI_trust_num, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived AI Trustworthyness rating") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("AI Trustworthyness vs confidence\nin Nobars Condition") #main plot title
+
+AI_trust_plot_4 <- ggplot(person_bar, aes(x=AI_trust_num, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived AI Trustworthyness rating") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("AI Trustworthyness vs confidence\nin Bars Condition") #main plot title
+
+cowplot::plot_grid(AI_trust_plot_1, AI_trust_plot_2, AI_trust_plot_3, AI_trust_plot_4)
+```
+
+#### Attention Check vs confidence
+There is no evidence suggesting confidence will be affected by participants
+performance on attention checks.
+```{r}
+boxplot(confidence ~ atn_ch, data = person)
+
+#Average confidence in no-bar vs bar
+t.test(confidence ~ atn_ch, data = person)
+
+#Effect Size of the t.test
+cohen.d(confidence ~ atn_ch, data = person)
+```
+
+#### Age vs confidence 
+There is no evidence suggesting confidence will be affected by participants age.
+```{r}
+age_plot_1 <- ggplot(person_noAI, aes(x=log(age), y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Age") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Age vs confidence\nin No-AI Condition") #main plot title
+
+age_plot_2 <- ggplot(person_AI, aes(x=log(age), y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Age") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Age vs confidence\nin All-AI Condition") #main plot title
+
+age_plot_3 <- ggplot(person_nobar, aes(x=log(age), y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Age") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Age vs confidence\nin Nobars Condition") #main plot title
+
+age_plot_4 <- ggplot(person_bar, aes(x=log(age), y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Age") +
+  ylab("Mean confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Age vs confidence\nin Bars Condition") #main plot title
+
+cowplot::plot_grid(age_plot_1, age_plot_2, age_plot_3, age_plot_4)
+```
+
+#### Gender vs confidence
+Although there is a slight difference, it is not significant and the effect
+size is negligible. Gender should not affect confidence.
+```{r}
+boxplot(confidence ~ male_num, data = person)
+
+t.test(confidence ~ male_num, data = person)
+
+cohen.d(confidence ~ male_num, data = person)
+```
+
+#### College vs confidence
+Participants education level should not affect confidence.
+```{r}
+boxplot(confidence ~ college, data = person)
+
+t.test(confidence ~ college, data = person)
+
+cohen.d(confidence ~ college, data = person)
+```
+
+# #############################################################################
+# #############################################################################
+# _____________________________________________________________________________
+### END OF EXPLORATORY PLOTS FOR DATASET WHERE EACH OBSERVATION WAS A PERSON
+# _____________________________________________________________________________
+# #############################################################################
+# #############################################################################
+
+
+All of the predictor variables can be included in the mulitple linear regression
+since rcorr results indicate none of them are correlated to each other. The
+strongest correlations are between AI recommendations and Uncertainty info (0.58)
+but that can be ignored due to the design of the study. Uncertainty information
+is provided only when AI recommendations are provided. Other mentionable
+correlations, although weak, are between the AI usefulness rating and AI 
+trustworthy rating (0.41).
+
+AI_use and uncertainty is strongly correlated. 
+Reading about handling multicollinearity. 
+```{r}
+# Checking for strong correlations between predictor variables
+rcorr(as.matrix(person[,c("AI","bar","Dmn_know_a_num",
+                          "Dmn_know_p_num", "AI_use","time_taken", #create a column for log of time
+                          "Task_diff_num", "AI_trust_num", "atn_ch","age",
+                          "male_num","college")]))
+```
+
+## LINEAR MODELS ON confidence
+
+#### Effect of AI on confidence
+Results of the simple linear regression indicate a positive
+significant relationship between AI recommendations and confidence (F(1,400) = 
+562.1, p <0.0001, R2 = 0.58). 
+```{r}
+lm.1.conf <- lm(confidence ~ AI, data = person) #linear model
+summary(lm.1.conf)
+```
+
+Given the predictor variable is binary, we see a pattern in the residuals vs 
+fitted plot. Otherwise, the model is confeptable.
+The patter in the Q-Q plot is confeptable given the binary predictor variable,
+but it does deviate from the line at the edges.
+```{r}
+plot(lm.1.conf)
+```
+
+#### Effect of Uncertainty Information on confidence
+Results of the simple linear regression indicate a positive
+significant relationship between AI recommendations and confidence as well as 
+Uncerainty information and confidence (F(2,399) = 314.2, p <0.0001, R2 = 0.61). 
+```{r}
+lm.2.conf <- lm(confidence ~ AI + bar, data = person)
+
+summary(lm.2.conf)
+```
+
+
+```{r}
+lm.3.conf <- lm(confidence ~ AI + bar + AI_use + time_taken + Task_diff_num +
+                 AI_trust_num + atn_ch + log(age) + male_num + college,
+               data = person)
+
+summary(lm.3.conf)
+```
+
+
+
+```{r}
+plot(lm.2.conf)
+```
+
+
+```{r}
+lm.3.a.conf <- lm(confidence ~ Dmn_know_a_num*AI + Dmn_know_a_num*bar, 
+                 data = animals_person)
+
+summary(lm.3.a.conf)
+
+#confidence ~ AI + Bar + Plant_num*AI + Plant_num*Bar + dmn_knowPlant + dmn_knowAnimal + log(time_taken)*AI + log(time_taken)*Bar
+```
+
+
+```{r}
+plot(lm.3.a.conf)
+```
+
+
+```{r}
+lm.3.p.conf <- lm(confidence ~ Dmn_know_p_num*AI + Dmn_know_p_num*bar, 
+                 data = plants_person)
+
+summary(lm.3.p.conf)
+```
+
+
+```{r}
+plot(lm.3.p.conf)
+```
+
+ #### “Dual process” theories of cognition, System 1 vs. System 2
+
+```{r}
+lm.4.a.conf <- lm(confidence ~ Dmn_know_a_num*AI + Dmn_know_a_num*bar + AI_use + 
+                 time_taken + Task_diff_num + AI_trust_num , data = animals_person)
+
+summary(lm.4.a.conf)
+```
+
+
+```{r}
+plot(lm.4.a.conf)
+```
+
+
+```{r}
+lm.4.p.conf <- lm(confidence ~ Dmn_know_p_num*AI + Dmn_know_p_num*bar + AI_use + 
+                 time_taken + Task_diff_num + AI_trust_num , data = plants_person)
+
+summary(lm.4.p.conf)
+```
+
+
+
+```{r}
+lm.5.a.conf <- lm(confidence ~ Dmn_know_a_num*AI + Dmn_know_a_num*bar + AI_use + 
+                 time_taken + Task_diff_num + AI_trust_num + atn_ch + log(age) + 
+                 male_num + college, data = animals_person)
+
+summary(lm.5.a.conf)
+```
+
+
+```{r}
+plot(lm.5.a.conf)
+```
+
+
+```{r}
+lm.5.p.conf <- lm(confidence ~ Dmn_know_p_num*AI + Dmn_know_p_num*bar + AI_use + 
+                 time_taken + Task_diff_num + AI_trust_num + atn_ch + log(age) + 
+                 male_num + college, data = plants_person)
+
+summary(lm.5.p.conf)
+```
+
+
+```{r}
+plot(lm.5.p.conf)
+```
+
+# #############################################################################
+# #############################################################################
+# _____________________________________________________________________________
+### END OF ANALYSIS FOR DATASET WHERE EACH OBSERVATION WAS A PERSON
+# _____________________________________________________________________________
+# #############################################################################
+# #############################################################################
+
+
+
+
+Loading libraries
+```{r}
+library(lme4)
+library(BBmisc)
+library(lmerTest)
+library(psycho)
+library(sjPlot)
+library(languageR)
+```
+
+# Loading datasets
+```{r}
+image_person <- read.csv("Datasets/Data_cleaned_image_person.csv")
+
+plants_image_person <- read.csv("Datasets/Data_cleaned_plants_image_person.csv")
+
+animals_image_person <- read.csv("Datasets/Data_cleaned_animals_image_person.csv")
+```
+
+
+```{r}
+summary(image_person)
+```
+
+
+```{r}
+par(mfrow=c(2,2))
+
+hist(image_person$age, breaks = "FD")
+hist(log(image_person$age))
+
+```
+
+
+```{r}
+hist(image_person$Task_diff_num)
+```
+
+
+```{r}
+hist(image_person$AI_trust_num)
+```
+
+
+
+
+```{r}
+par(mfrow=c(2,2))
+
+hist(image_person$time_taken, breaks = "FD")
+hist(log(image_person$time_taken), breaks = "FD")
+```
+
+
+```{r}
+par(mfrow=c(2,2))
+
+hist(image_person$AI_use)
+hist (log(image_person$AI_use))
+```
+
+
+```{r}
+ggplot(image_person, aes(x= Bar, y = confidence)) +
+  geom_boxplot() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12)
+```
+
+
+
+```{r}
+# AI-use vs. confidence - all AI- conditions
+AI_use_plot.4 <- filter(image_person, AI == 1) %>%
+  ggplot(aes(x=AI_use, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived AI-usefulness rating") +
+  ylab("confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Overall AI_use vs confidence") #main plot title
+
+# AI-use vs. confidence - AI-Nobar conditions
+AI_use_plot.5 <- filter(image_person, AI ==1 & Bar == 0) %>%
+  ggplot(aes(x=AI_use, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived AI-usefulness rating") +
+  ylab("confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("AI-use vs confidence in\nAI-nobar condition") #main plot title
+
+# AI-use vs. confidence - AI-bar conditions
+AI_use_plot.6 <- filter(image_person, AI ==1 & Bar == 1) %>%
+  ggplot(aes(x=AI_use, y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #styling the plot
+  xlab("Perceived AI-usefulness rating") +
+  ylab("confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("AI-use vs confidence in\nAI-bar condition") #main plot title
+
+cowplot::plot_grid(AI_use_plot.4, AI_use_plot.5, AI_use_plot.6)
+```
+
+#### Time taken vs confidence
+There is a clear outlier that is affecting the fit of the data. To find a 
+relationship between these two variables, the outlier will be removed. During
+the analysis, linear models will be fit with and without the outlier to see its
+effect on the results.
+
+There is no clear relationship between time taken and confidence in AI or No-AI
+conditions. Even though an extreme outlier was removed, new outliers will come
+up since the range in average time taken in wide. Graphs supports that as
+well. Based on the plots generated, time taken does not have any effect on the
+confidence of the participants.  
+```{r}
+#Time taken in no-AI condition
+time_taken_plot_3 <- filter(image_person, AI == 0) %>%
+  ggplot(aes(x=log(time_taken), y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #adjusting x-axis title place 
+  xlab("Time-taken per stimulus\n(in seconds)") +
+  ylab("confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("confidence vs time-taken\nNo-AI recommendations") #main plot title
+
+#Time-taken in AI-condition
+time_taken_plot_4 <- filter(image_person, AI == 1) %>%
+  ggplot(aes(x=log(time_taken), y = confidence)) +
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y~x) +
+  theme_bw(base_size = 12) + #adjusting x-axis title place 
+  xlab("Time-taken per stimulus\n(in seconds)") +
+  ylab("confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("confidence vs time-taken in\nall AI conditions") #main plot title
+
+
+cowplot::plot_grid(time_taken_plot_3, time_taken_plot_4)
+
+```
+
+
+```{r}
+#Filtering for AI vs No-AI
+image_person_noAI <- filter(image_person, AI == 0)
+image_person_AI <- filter(image_person, AI == 1)
+
+#Filtering for Bar vs No-bar
+image_person_bar <- filter(image_person_AI, Bar == 1)
+image_person_nobar <- filter(image_person_AI, Bar == 0)
+
+stim_AI_int_plot <- ggplot(image_person) +
+  aes(x = animal, y = confidence, color = AI) +
+  geom_point(color = "grey") + 
+  geom_smooth(method = "lm", data = image_person_noAI) + 
+  geom_smooth(method = "lm", data = image_person_AI) + 
+  xlab("Animal = 1") +
+  ylab("confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Stimuli*AI vs confidence") #main plot title
+
+stim_bar_int_plot <- ggplot(image_person) +
+  aes(x = animal, y = confidence, color = Bar) +
+  geom_point(color = "grey") + 
+  geom_smooth(method = "lm", data = image_person_nobar) + 
+  geom_smooth(method = "lm", data = image_person_bar) + 
+  xlab("Animal = 1") +
+  ylab("confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Stimuli*Bar vs confidence") #main plot title
+
+cowplot::plot_grid(stim_AI_int_plot, stim_bar_int_plot)
+```
+
+
+```{r}
+stim_AI_int_plot2 <- ggplot(image_person) +
+  aes(x = as.factor(animal), y = confidence) +
+  geom_boxplot() + 
+  facet_wrap(~AI) + 
+  xlab("Animal = 1") +
+  ylab("confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Stimuli*AI vs confidence") #main plot title
+
+stim_Bar_int_plot2 <- ggplot(image_person) +
+  aes(x = as.factor(animal), y = confidence) +
+  geom_boxplot() + 
+  facet_wrap(~Bar) + 
+  xlab("Animal = 1") +
+  ylab("confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Stimuli*Bar vs confidence") #main plot title
+
+cowplot::plot_grid(stim_AI_int_plot2, stim_Bar_int_plot2)
+```
+
+
+
+```{r}
+time_AI_int_plot <- ggplot(image_person) +
+  aes(x = log(time_taken), y = confidence, color = AI) +
+  geom_point(color = "grey") + 
+  geom_smooth(method = "lm", data = image_person_noAI) + 
+  geom_smooth(method = "lm", data = image_person_AI) + 
+  xlab("Log(Time Taken)") +
+  ylab("confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Time*AI vs confidence") #main plot title
+
+time_Bar_int_plot <- ggplot(image_person) +
+  aes(x = log(time_taken), y = confidence, color = Bar) +
+  geom_point(color = "grey") + 
+  geom_smooth(method = "lm", data = image_person_nobar) + 
+  geom_smooth(method = "lm", data = image_person_bar) + 
+  xlab("Log(Time Taken)") +
+  ylab("confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Time*Bar vs confidence") #main plot title
+
+cowplot::plot_grid(time_AI_int_plot, time_Bar_int_plot)
+```
+
+
+#### Logistic regression models - confidence is the response variable
+In all the logistic regression models, both the image and the participants
+are random effects
+
+* We find a main effect of Condition, with hits more likely to occur in the 
+Treatment condition than in the Baseline condition 
+(β=Estimate, SE=Std. Error, z(Number of obs.)=z value, p=Pr(>|z|)). *
+
+Results indicate that confidence is most likely to be correct when AI
+recommendations are provided. (b = 1.17, SE = 0.05, z(12800)=25.34, p<0.0001)
+
+```{r}
+lmer.1.conf <- lmer(confidence ~ AI + (1|Participant) + (1|Image),
+                    data = image_person)
+summary(lmer.1.conf)
+```
+
+
+```{r}
+lmer.2.conf <- lmer(confidence ~ AI + Bar + animal*AI + animal*Bar + 
+                       Dmn_know_p_num + Dmn_know_a_num + (1|Image) +
+                       (1|Participant), data = image_person)
+
+summary(lmer.2.conf)
+```
+
+
+```{r}
+lmer.3.conf <- lmer(confidence ~ AI + Bar + animal*AI + animal*Bar + 
+                       Dmn_know_p_num + Dmn_know_a_num + AI_use + 
+                       log(time_taken)*AI + log(time_taken)*Bar + 
+                       Task_diff_num + AI_trust_num + atn_ch + log(age) +
+                       male_num + college +(1|Image) + (1|Participant),
+                    data = image_person)
+
+summary(lmer.3.conf)
+```
+
+
+
+```{r}
+lmer.2.conf <- lmer(confidence ~ AI + Bar + (1|Image) + (1|Participant),
+                    data = image_person)
+
+summary(lmer.2.conf)
+```
+
+
+```{r}
+lmer.3.a.conf <- lmer(confidence ~ Dmn_know_a_num*AI + Dmn_know_a_num*Bar + 
+                       (1|Image) + (1|Participant),
+                      data = animals_image_person)
+
+summary(lmer.3.a.conf)
+```
+
+```{r}
+lmer.3.p.conf <- lmer(confidence ~ Dmn_know_p_num*AI + Dmn_know_p_num*Bar + 
+                       (1|Image) + (1|Participant),
+                      data = plants_image_person)
+
+summary(lmer.3.p.conf)
+```
+
+
+```{r}
+lmer.4.a.conf <- lmer(confidence ~ Dmn_know_a_num*AI + Dmn_know_a_num*Bar +
+                         AI_use + log(time_taken) + Task_diff_num + 
+                         AI_trust_num + (1|Image) + (1|Participant),
+                      data = animals_image_person)
+
+summary(lmer.4.a.conf)
+```
+
+```{r}
+lmer.4.p.conf <- lmer(confidence ~ Dmn_know_p_num*AI + Dmn_know_p_num*Bar +
+                         AI_use + log(time_taken) + Task_diff_num + 
+                         AI_trust_num + (1|Image) + (1|Participant),
+                      data = plants_image_person)
+
+summary(lmer.4.p.conf)
+```
+
+
+```{r}
+lmer.5.a.conf <- lmer(confidence ~ Dmn_know_a_num*AI + Dmn_know_a_num*Bar +
+                         AI_use + log(time_taken) + Task_diff_num + 
+                         AI_trust_num + atn_ch + log(age) + male_num + college +
+                         (1|Image) + (1|Participant),
+                      data = animals_image_person)
+
+summary(lmer.5.a.conf)
+```
+
+
+```{r}
+lmer.5.p.conf <- lmer(confidence ~ Dmn_know_p_num*AI + Dmn_know_p_num*Bar +
+                         AI_use + log(time_taken) + Task_diff_num + 
+                         AI_trust_num + atn_ch + log(age) + male_num + college +
+                         (1|Image) + (1|Participant),
+                      data = plants_image_person)
+
+summary(lmer.5.p.conf)
+```
+
+
+#### confidence Histogram Plot
+Creating tables of summary for each experimental condition
+```{r}
+#No-AI confidence 
+no_AI_conf_summary <- person_noAI %>% #choosing dataset
+  summarise(mean_conf = mean(confidence, na.rm = TRUE),
+            sd_conf = sd(confidence, na.rm = TRUE))
+#storing mean & sd values for confidence in no AI condition in a tibble.
+no_AI_conf_summary$cond <- "No-AI" #adding a column for experimental condition
+
+#All-AI confidence
+all_AI_conf_summary <- person_AI %>%
+  summarise(mean_conf = mean(confidence, na.rm = TRUE),
+            sd_conf = sd(confidence, na.rm = TRUE))
+all_AI_conf_summary$cond <- "All-AI"
+
+#AI-nobar confidence
+AI_nobar_conf_summary <- person_nobar %>%
+  summarise(mean_conf = mean(confidence, na.rm = TRUE),
+            sd_conf = sd(confidence, na.rm = TRUE))
+AI_nobar_conf_summary$cond <- "AI-Nobar"
+
+#AI-bar confidence
+AI_bar_conf_summary <- person_bar %>%
+  summarise(mean_conf = mean(confidence, na.rm = TRUE),
+            sd_conf = sd(confidence, na.rm = TRUE))
+AI_bar_conf_summary$cond <- "AI-Bar"
+
+#Combining summary tables
+summ_AI_NoAI <- union(no_AI_conf_summary, #combining two datasets together.
+                      all_AI_conf_summary) #tibble for AI vs NO-AI
+
+summ_Nobar_Bar <- union(AI_nobar_conf_summary, 
+                        AI_bar_conf_summary) #tibble for nobar vs bar conditions
+```
+
+#### confidence histrograms with Error bars
+```{r}
+#Mean confidence with & without AI recommendations
+summ_AI_NoAI_plot <- ggplot(summ_AI_NoAI, #creating a plot of no_AI confidence
+                            aes(y=mean_conf, x = cond)) + #choosing x&y axis
+  geom_bar(position="dodge", #geom_bar - barplot
+           stat="identity", width = 0.5) + 
+  geom_errorbar(aes(ymin = mean_conf - 2*sd_conf, #adding errorbars
+                    ymax = mean_conf + 2*sd_conf), width = .2) +
+  theme_bw(base_size = 12) + #adjusting x-axis title place 
+  xlab("Experimental Condition") + ylab("Mean Performance") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("Mean confidence w/ & w/o\nAI Recommendations") #main plot title
+
+#Mean confidence with & without Uncertainty Information
+summ_Nobar_Bar_plot <- ggplot(summ_Nobar_Bar, aes(y=mean_conf, x = cond)) + 
+  geom_bar(position="dodge", stat="identity", width = 0.5) +
+  geom_errorbar(aes(ymin = mean_conf - 2*sd_conf,
+                    ymax = mean_conf + 2*sd_conf), width = .2) +
+  theme_bw(base_size = 12) +
+  xlab("Experimental Condition") + ylab("Mean Performance") + 
+  ylim(0,1) + 
+  ggtitle("Mean confidence w/ & w/o\nUncertianty Information")
+```
+
+
+```{r}
+cowplot::plot_grid(summ_AI_NoAI_plot, summ_Nobar_Bar_plot)
+```

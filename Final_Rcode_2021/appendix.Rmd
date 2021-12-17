@@ -1,0 +1,38 @@
+
+R-Code APPEnDIX 
+
+
+Chunk below will not work! CAn't figure why. 
+```{r}
+
+# Checking for strong correlations between predictor variables
+within_corr <- rcorr(as.matrix(person[,c("AI","time_taken", 
+                          "Task_diff_num", "AI_trust_num", "atn_ch","log_of_age",
+                          "male_num","college", "accuracy", "confidence", 
+                          "over_conf")]))
+
+flat_cor_mat <- function(cor_r, cor_p){
+  #This function provides a simple formatting of a correlation matrix
+  #into a table with 4 columns containing :
+    # Column 1 : row names (variable 1 for the correlation test)
+    # Column 2 : column names (variable 2 for the correlation test)
+    # Column 3 : the correlation coefficients
+    # Column 4 : the p-values of the correlations
+  cor_r <- rownames_to_column(as.data.frame(cor_r), var = "row")
+  cor_r <- gather(cor_r, column, cor, -1)
+  cor_p <- rownames_to_column(as.data.frame(cor_p), var = "row")
+  cor_p <- gather(cor_p, column, p, -1)
+  cor_p_matrix <- left_join(cor_r, cor_p, by = c("row", "column"))
+  cor_p_matrix
+}
+my_cor_matrix <- flat_cor_mat(within_corr$r, within_corr$P)
+
+corrplot(within_corr, method = "circle")
+
+```
+
+
+```{r}
+ggcorrplot(within_corr, hc.order = FALSE,
+    type = "lower")
+```

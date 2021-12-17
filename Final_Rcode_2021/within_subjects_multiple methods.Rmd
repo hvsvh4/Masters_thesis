@@ -1,0 +1,176 @@
+
+
+```{r}
+library(stargazer) # for omitting as.factor results in linear regressions
+```
+
+
+
+# 0. PAIRED T-TEST
+```{r}
+#Boxplot
+boxplot(person_noAI$accuracy,#box plot. Comparing two sets of data
+        person_AI$accuracy, #comparing no-AI vs AI accuracy
+        col= topo.colors(2), #mentioning colors of the boxes
+        main = "AI vs No-AI Accuracy", #main title
+        ylab = "Accuracy Percentage") #y-axis title
+legend(.5,.65, #legend, mentioning where in the graph to place
+       inset = 0.2, c("No-AI","AI"), #mentioning text for the legend
+       fill = topo.colors(2), cex=0.8) #providing color info for the boxes.
+
+#Average accuracy in AI vs no_AI
+t.test(person_noAI$accuracy, person_AI$accuracy, #t-test to compare.
+       paired = TRUE) #paired is true as this is a within-subjects comparison
+
+#Effect Size of the t.test
+cohen.d(person_noAI$accuracy, person_AI$accuracy, #effect size of the comparison
+        paired = TRUE)
+```
+
+
+# 1. REPEATED MEASURES ANOVA
+```{r}
+person2 <- person %>%
+  group_by(ResponseId) %>%
+  mutate(id=cur_group_id())
+
+accuracy <- as.numeric(person2$accuracy)
+AI <- as.factor(person2$AI)
+id <- as.factor(person2$id)
+
+
+repeated.anova <- aov(accuracy ~ AI + Error(id))
+summary(repeated.anova)
+```
+One way anova suggests that accuracy differed between these experimental
+conditions F(1, 200) = 925.7, p < 0.001.
+
+When we pull out the means, we see that when AI recommendations are introduced,
+the accuracy is 0.54 and without the AI recommendation, the mean accuracy
+was 0.36 resulting in a 19% increase in mean accuracy when AI recommendations
+are introduced.
+
+# SAME RESULTS AS THE ORIGINAL LINEAR REGRESSION INCLUDED IN THE PAPER.
+
+```{r}
+repeated.anova2 <- aov(accuracy ~ AI + time_taken +
+                          atn_ch + log(age) + male_num +
+                          college + Error(id), data = person)
+summary(repeated.anova2)
+```
+
+
+
+
+```{r}
+#Exmaine line graph of repeated measures anova 
+result <- tapply(accuracy, AI, mean)
+result
+plot(result, type = "o", xlab = "AI", ylab = "Accuracy")
+```
+
+
+# 2. MIXED EFFECT LINEAR REGRESSION ACCOUNTING THE INDIVIDUALS
+```{r}
+lmer.acc.1 <- lmer(accuracy ~ AI + (1|ResponseId), data = person)
+
+summary(lmer.acc.1)
+
+anova(lmer.acc.1)
+```
+
+Mixed effects model outputs the same result, AI increases the mean accuracy of
+the participants by approximately 19%.
+
+It also shows the variance amount participants which is 0.2% with SD = 5%
+# SAME RESULTS AS THE ORIGINAL LINEAR REGRESSION INCLUDED IN THE PAPER.
+
+
+```{r}
+lmer.acc.2 <- lmer(accuracy ~ AI + time_taken + Task_diff_num +
+                 AI_trust_num + atn_ch + log(age) + male_num + college + 
+                   (1|ResponseId),
+               data = person)
+
+summary(lmer.acc.2)
+
+anova(lmer.acc.2)
+```
+Including rest of the variables show AI is significantly affecting accuracy and
+none of the other variables are; similar to lm.3.acc below which was originally
+included in the paper.
+It shows that variance among participants were approximately 0.3% with SD = 5%.
+# SAME RESULTS AS THE ORIGINAL LINEAR REGRESSION INCLUDED IN THE PAPER.
+
+# 3. CHANGE IN ACCURACY - LINEAR REGRESSION
+```{r}
+lm.1.change.acc <- lm(change_acc ~ 1, data = within_corr_mat) #linear model
+summary(lm.1.change.acc)
+```
+Here, the change in accuracy is the response variable and the intercept
+actually represents the improvement in accuracy. Intercept shows a value
+of 0.1865 or approximately 19%; similar to rest of the regression results.
+T value and p values are same as the paired t.test
+
+
+```{r}
+lm.2.change.acc <- lm(change_acc ~ 1 + change_time + Task_diff_num +
+                 AI_trust_num + atn_ch + log(age) + male_num + college,
+               data = within_corr_mat)
+
+summary(lm.2.change.acc)
+```
+This is the weird one! The intercept is not significant.
+Unlike the original here Task difficulty is the only significant variable.
+Could be due to the weird way of modeling the regression.
+
+
+
+# 4. ORIGINAL LINEAR REGRESSION INCLUDED IN THE PAPER
+```{r}
+lm.1.acc <- lm(accuracy ~ AI + as.factor(id), data = person) #linear model
+
+stargazer(lm.1.acc, omit = "id", type = "text")
+anova(lm.1.acc)
+```
+Original model agrees all the other methods
+
+```{r}
+summary(lm.1.acc)
+nobs(lm.1.acc)
+```
+
+
+
+```{r}
+lm.3.acc <- lm(accuracy ~ AI + time_taken + Task_diff_num +
+                 AI_trust_num + atn_ch + log(age) + male_num + college + 
+                 as.factor(id),
+               data = person)
+
+stargazer(lm.3.acc, omit = "id", type = "text")
+anova(lm.3.acc)
+
+```
+This model technically agress with rest of the models but does not
+agree with lm.2.change.acc. It could be due to the fact that the response
+variable is the change in accuracy.
+
+```{r}
+summary(lm.3.acc)
+nobs(lm.3.acc)
+```
+
+
+# Overall i think, we can stick with the original models in our paper. We had a
+# similar discussion before but looking into all these models surely helps 
+# confirm that we are examining the data correctly.
+
+
+
+
+
+
+
+
+

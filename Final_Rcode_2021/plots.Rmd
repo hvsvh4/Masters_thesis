@@ -1,0 +1,432 @@
+
+
+```{r}
+library(ggpubr)
+```
+
+
+#### confidence Histogram Plot
+Creating tables of summary for each experimental condition
+```{r}
+#No-AI accuracy
+no_AI_acc_summary <- person_noAI %>% #choosing dataset
+  summarise(mean_acc = mean(accuracy, na.rm = TRUE),
+            sd_acc = sd(accuracy, na.rm = TRUE))
+#storing mean & sd values for confidence in no AI condition in a tibble.
+no_AI_acc_summary$cond <- "No AI" #adding a column for experimental condition
+
+#All-AI accuracy
+all_AI_acc_summary <- person_AI %>%
+  summarise(mean_acc = mean(accuracy, na.rm = TRUE),
+            sd_acc = sd(confidence, na.rm = TRUE))
+all_AI_acc_summary$cond <- "AI"
+
+
+
+#Combining summary tables
+summ_AI_NoAI_acc <- union(no_AI_acc_summary, #combining two datasets together.
+                      all_AI_acc_summary) #tibble for AI vs NO-AI
+
+summ_AI_NoAI_acc$cond <- factor(summ_AI_NoAI_acc$cond, 
+                                levels = c("No AI", "AI"))
+
+#No-AI confidence 
+no_AI_conf_summary <- person_noAI %>% #choosing dataset
+  summarise(mean_conf = mean(confidence, na.rm = TRUE),
+            sd_conf = sd(confidence, na.rm = TRUE))
+#storing mean & sd values for confidence in no AI condition in a tibble.
+no_AI_conf_summary$cond <- "No AI" #adding a column for experimental condition
+
+#All-AI confidence
+all_AI_conf_summary <- person_AI %>%
+  summarise(mean_conf = mean(confidence, na.rm = TRUE),
+            sd_conf = sd(confidence, na.rm = TRUE))
+all_AI_conf_summary$cond <- "AI"
+
+
+
+#Combining summary tables
+summ_AI_NoAI_conf <- union(no_AI_conf_summary, #combining two datasets together.
+                      all_AI_conf_summary) #tibble for AI vs NO-AI
+
+summ_AI_NoAI_conf$cond <- factor(summ_AI_NoAI_conf$cond, 
+                                levels = c("No AI", "AI"))
+
+```
+
+#### confidence histrograms with Error bars
+```{r}
+#Mean accuracy with & without AI recommendations
+acc_noAI <- ggplot(summ_AI_NoAI_acc, #creating a plot of no_AI accuracy
+                            aes(y=mean_acc, x = cond, color = cond)) + #choosing x&y axis
+  geom_bar(position="dodge", #geom_bar - barplot
+           stat="identity", width = 0.5, show.legend = F, fill = "white") + 
+  geom_errorbar(aes(ymin = mean_acc - 2*sd_acc, #adding errorbars
+                    ymax = mean_acc + 2*sd_acc), width = .2, show.legend = F) +
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Experimental Condition") + ylab("Mean Accuracy") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("(a)") +  #main plot title
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .59, linetype="dashed", color = "blue")
+
+#Mean confidence with & without AI recommendations
+conf_noAI <- ggplot(summ_AI_NoAI_conf, #creating a plot of no_AI confidence
+                            aes(y=mean_conf, x = cond, color = cond)) + #choosing x&y axis
+  geom_bar(position="dodge", #geom_bar - barplot
+           stat="identity", width = 0.5, show.legend = F, fill = "white") + 
+  geom_errorbar(aes(ymin = mean_conf - 2*sd_conf, #adding errorbars
+                    ymax = mean_conf + 2*sd_conf), width = .2, show.legend = F) +
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Experimental Condition") + ylab("Mean Confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("(b)") + #main plot title
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .59, linetype = "dashed", color = "blue")
+
+```
+
+
+```{r}
+cowplot::plot_grid(acc_noAI, conf_noAI) + 
+  scale_linetype_manual(name = "", values = c(2, 2), 
+                      guide = guide_legend(override.aes = list(color = "blue")))
+```
+
+
+
+
+
+
+###### BETWEEEN SUBJECTS #######
+
+
+
+```{r}
+#Mean confidence with & without Uncertainty Information
+summ_Nobar_Bar_plot <- ggplot(summ_Nobar_Bar, aes(y=mean_conf, x = cond)) + 
+  geom_bar(position="dodge", stat="identity", width = 0.5) +
+  geom_errorbar(aes(ymin = mean_conf - 2*sd_conf,
+                    ymax = mean_conf + 2*sd_conf), width = .2) +
+  theme_bw(base_size = 12) +
+  xlab("Experimental Condition") + ylab("Mean Performance") + 
+  ylim(0,1) + 
+  ggtitle("Mean confidence w/ & w/o\nUncertianty Information")
+```
+
+
+
+
+
+#### confidence Histogram Plot
+Creating tables of summary for each experimental condition
+```{r}
+#AI-nobar accuracy
+AI_nobar_acc_summary <- person_nobar %>%
+  summarise(mean_acc = mean(accuracy, na.rm = TRUE),
+            sd_acc = sd(accuracy, na.rm = TRUE))
+AI_nobar_acc_summary$cond <- "without uncertainty"
+
+#AI-bar confidence
+AI_bar_acc_summary <- person_bar %>%
+  summarise(mean_acc = mean(accuracy, na.rm = TRUE),
+            sd_acc = sd(accuracy, na.rm = TRUE))
+AI_bar_acc_summary$cond <- "with uncertainty"
+
+#Combining summary tables
+summ_Nobar_Bar_acc <- union(AI_nobar_acc_summary, 
+                        AI_bar_acc_summary) #tibble for nobar vs bar conditions
+
+summ_Nobar_Bar_acc$cond <- factor(summ_Nobar_Bar_acc$cond, 
+                                levels = c("without uncertainty", "with uncertainty"))
+
+#AI-nobar confidence
+AI_nobar_conf_summary <- person_nobar %>%
+  summarise(mean_conf = mean(confidence, na.rm = TRUE),
+            sd_conf = sd(confidence, na.rm = TRUE))
+AI_nobar_conf_summary$cond <- "without uncertainty"
+
+#AI-bar confidence
+AI_bar_conf_summary <- person_bar %>%
+  summarise(mean_conf = mean(confidence, na.rm = TRUE),
+            sd_conf = sd(confidence, na.rm = TRUE))
+AI_bar_conf_summary$cond <- "with uncertainty"
+
+#Combining summary tables
+summ_Nobar_Bar_conf <- union(AI_nobar_conf_summary, 
+                        AI_bar_conf_summary) #tibble for nobar vs bar conditions
+
+summ_Nobar_Bar_conf$cond <- factor(summ_Nobar_Bar_conf$cond, 
+                                levels = c("without uncertainty", "with uncertainty"))
+
+```
+
+#### confidence histrograms with Error bars
+```{r}
+#Mean accuracy with & without AI recommendations
+acc_noUnc <- ggplot(summ_Nobar_Bar_acc, #creating a plot of no_AI accuracy
+                            aes(y=mean_acc, x = cond, color = cond)) + #choosing x&y axis
+  geom_bar(position="dodge", #geom_bar - barplot
+           stat="identity", width = 0.5, show.legend = F, fill = "white") + 
+  geom_errorbar(aes(ymin = mean_acc - 2*sd_acc, #adding errorbars
+                    ymax = mean_acc + 2*sd_acc), width = .2, show.legend = F) +
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Experimental Condition") + ylab("Mean Accuracy") + 
+  scale_x_discrete(
+        labels=c("without\nuncertainty", "with\nuncertainty")) + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("(a)") +  #main plot title
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .59, linetype="dashed", color = "blue") + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+
+#Mean confidence with & without AI recommendations
+conf_noUnc <- ggplot(summ_Nobar_Bar_conf, #creating a plot of no_AI confidence
+                            aes(y=mean_conf, x = cond, color = cond)) + #choosing x&y axis
+  geom_bar(position="dodge", #geom_bar - barplot
+           stat="identity", width = 0.5, show.legend = F, fill = "white") + 
+  geom_errorbar(aes(ymin = mean_conf - 2*sd_conf, #adding errorbars
+                    ymax = mean_conf + 2*sd_conf), width = .2, show.legend = F) +
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Experimental Condition") + ylab("Mean Confidence") + 
+  scale_x_discrete(
+        labels=c("without\nuncertainty", "with\nuncertainty")) + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("(b)") + #main plot title
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+
+```
+
+
+```{r}
+cowplot::plot_grid(acc_noUnc, conf_noUnc)
+```
+
+
+
+```{r}
+#Filtering for AI vs No-AI
+animals_person_noAI <- filter(animals_person, AI == 0)
+animals_person_AI <- filter(animals_person, AI == 1)
+
+
+animal_dmn_AI_plot1 <- ggplot(animals_person) +
+  aes(x = Dmn_know_a_num, y = accuracy, color = as.factor(AI),fill= as.factor(AI), show.legend = F) +
+  geom_smooth(method = "lm", data = animals_person_noAI, show.legend = F) + 
+  geom_smooth(method = "lm", data = animals_person_AI, show.legend = F) + 
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Animal knowledge") + ylab("Mean Accuracy") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .62, linetype="dashed", color = "red") + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+
+
+animal_dmn_AI_plot2 <- ggplot(animals_person) +
+  aes(x = Dmn_know_a_num, y = confidence, color = as.factor(AI),fill= as.factor(AI), show.legend = F) +
+  geom_smooth(method = "lm", data = animals_person_noAI, show.legend = F) + 
+  geom_smooth(method = "lm", data = animals_person_AI, show.legend = F) + 
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Animal knowledge") + ylab("Mean Confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .62, linetype="dashed", color = "red") + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+
+#Filtering for AI vs No-AI
+plants_person_noAI <- filter(plants_person, AI == 0)
+plants_person_AI <- filter(plants_person, AI == 1)
+
+
+plant_dmn_AI_plot1 <- ggplot(plants_person) +
+  aes(x = Dmn_know_p_num, y = accuracy, color = as.factor(AI),fill = as.factor(AI), show.legend = F) +
+  geom_smooth(method = "lm", data = plants_person_noAI, show.legend = F) + 
+  geom_smooth(method = "lm", data = plants_person_AI, show.legend = F) + 
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Plant knowledge") + ylab("Mean Accuracy") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .59, linetype="dashed", color = "red") + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+
+
+plant_dmn_AI_plot2 <- ggplot(plants_person) +
+  aes(x = Dmn_know_p_num, y = confidence, color = as.factor(AI),fill = as.factor(AI)) +
+  geom_smooth(method = "lm", data = plants_person_noAI) + 
+  geom_smooth(method = "lm", data = plants_person_AI) + 
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Plant knowledge") + ylab("Mean Confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .59, linetype="dashed", color = "red") + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9")) +
+  scale_fill_discrete(name = "Within-subjects", labels = c("Before AI", "After AI"))
+
+
+ggarrange(plant_dmn_AI_plot1, animal_dmn_AI_plot1, plant_dmn_AI_plot2, animal_dmn_AI_plot2,
+          align = 'h', labels = c("(a)", "(b)", "(c)", "(d)"),
+          common.legend = T)
+
+```
+
+
+
+```{r}
+#Filtering for Bar vs No-bar
+animals_person_bar <- filter(animals_person_AI, bar == 1)
+animals_person_nobar <- filter(animals_person_AI, bar == 0)
+
+animal_dmn_bar_plot1 <- ggplot(animals_person_AI) +
+  aes(x = Dmn_know_a_num, y = accuracy, color = as.factor(bar),fill= as.factor(bar), show.legend = F) +
+  geom_smooth(method = "lm", data = animals_person_nobar, show.legend = F) + 
+  geom_smooth(method = "lm", data = animals_person_bar, show.legend = F) + 
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Animal knowledge") + ylab("Mean Accuracy") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .62, linetype="dashed", color = "red") + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+
+
+animal_dmn_bar_plot2 <- ggplot(animals_person_AI) +
+  aes(x = Dmn_know_a_num, y = confidence, color = as.factor(bar),fill= as.factor(bar), show.legend = F) +
+  geom_smooth(method = "lm", data = animals_person_nobar, show.legend = F) + 
+  geom_smooth(method = "lm", data = animals_person_bar, show.legend = F) + 
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Animal knowledge") + ylab("Mean Confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .62, linetype="dashed", color = "red") + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+
+#Filtering for Bar vs No-bar
+plants_person_bar <- filter(plants_person_AI, bar == 1)
+plants_person_nobar <- filter(plants_person_AI, bar == 0)
+
+plant_dmn_bar_plot1 <- ggplot(plants_person_AI) +
+  aes(x = Dmn_know_p_num, y = accuracy, color = as.factor(bar),fill = as.factor(bar), show.legend = F) +
+  geom_smooth(method = "lm", data = plants_person_nobar, show.legend = F) + 
+  geom_smooth(method = "lm", data = plants_person_bar, show.legend = F) + 
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Plant knowledge") + ylab("Mean Accuracy") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .59, linetype="dashed", color = "red") + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+
+plant_dmn_AI_plot2 <- ggplot(plants_person_AI) +
+  aes(x = Dmn_know_p_num, y = confidence, color = as.factor(bar),fill = as.factor(bar)) +
+  geom_smooth(method = "lm", data = plants_person_nobar) + 
+  geom_smooth(method = "lm", data = plants_person_bar) + 
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Plant knowledge") + ylab("Mean Confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .59, linetype="dashed", color = "red") + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9")) +
+  scale_fill_discrete(name = "Between-subjects", labels = c("Without Uncertainty", "With Uncertainty"))
+
+
+ggarrange(plant_dmn_bar_plot1, animal_dmn_bar_plot1, plant_dmn_bar_plot2, animal_dmn_bar_plot2,
+          align = 'h', labels = c("(a)", "(b)", "(c)", "(d)"),
+          common.legend = T)
+
+```
+
+
+```{r}
+#Mean accuracy with & without AI recommendations
+
+
+
+acc_noUnc <- ggplot(summ_Nobar_Bar_acc, #creating a plot of no_AI accuracy
+                            aes(y=mean_acc, x = cond, color = cond)) + #choosing x&y axis
+  geom_bar(position="dodge", #geom_bar - barplot
+           stat="identity", width = 0.5, show.legend = F, fill = "white") + 
+  geom_errorbar(aes(ymin = mean_acc - 2*sd_acc, #adding errorbars
+                    ymax = mean_acc + 2*sd_acc), width = .2, show.legend = F) +
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Experimental Condition") + ylab("Mean Accuracy") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("(a)") +  #main plot title
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .59, linetype="dashed", color = "blue") + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+
+#Mean confidence with & without AI recommendations
+conf_noUnc <- ggplot(summ_Nobar_Bar_conf, #creating a plot of no_AI confidence
+                            aes(y=mean_conf, x = cond, color = cond)) + #choosing x&y axis
+  geom_bar(position="dodge", #geom_bar - barplot
+           stat="identity", width = 0.5, show.legend = F, fill = "white") + 
+  geom_errorbar(aes(ymin = mean_conf - 2*sd_conf, #adding errorbars
+                    ymax = mean_conf + 2*sd_conf), width = .2, show.legend = F) +
+  theme_bw(base_size = 18) + #adjusting x-axis title place 
+  xlab("Experimental Condition") + ylab("Mean Confidence") + #axis labels
+  ylim(0,1) + #providing the y-axis limits for the plot
+  ggtitle("(b)") + #main plot title
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = .5, linetype = "solid",
+                                 colour = "black")) + 
+  geom_hline(yintercept= .59, linetype = "dashed", color = "blue") + 
+  scale_color_manual(values=c("#E69F00", "#56B4E9"))
+```
+
+
+
+
+

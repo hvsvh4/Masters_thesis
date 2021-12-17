@@ -1,0 +1,233 @@
+
+
+
+```{r warning=FALSE}
+library(tidyverse) #for tidyr and new tidy version coding
+library(dplyr) #for pipe usage
+library(lubridate) #to handle date and time
+library(rstatix)
+library(effsize)
+```
+
+
+```{r}
+# import raw data from Qualtrics
+raw_data <- read_csv("Datasets/study_data.csv")
+
+#copying data so originial is left untouched
+data_person <- raw_data 
+
+#Removing first two unwanted rows. Duplicates for column names
+data_person <- data_person[-c(1,2),]
+
+#Converting class of the timestamps
+data_person$StartDate <-  as_datetime(data_person$StartDate)
+
+#started collecting data on 2/11/21 at 6:30 PM
+data_person <- 
+  filter(data_person, StartDate >= #select cells
+as.POSIXct("2021-02-11 18:30:00", #that has timestamps past 6:30 PM on 02/11/21
+tz = "UTC")) %>% #timestamps are in Mountrain TimeZone
+  filter(Finished == "True") #removing incomplete surveys
+
+
+# convert to tibble
+data_person <- as_tibble(data_person)
+
+#Removing columns that has NAs for all cells
+all_na <- function(x){
+  any(!is.na(x)) #anything is that not NA.
+#write the names of the columns.
+} 
+
+#Applying the all_na funtion to data_person tibble
+data_person <- data_person[, #chossing columns from the data frame
+                           which( #mentioning which columns
+                             unlist( #drop the one that follows lapply
+                               lapply(data_person,all_na)))]
+                               #lapply tells to apply all_na function
+
+
+
+#Removing Hannah from dataset - 
+#Survey Preview done by peer during data collection
+data_person <- data_person[data_person$`P-ID` != "Hannah",]
+  
+```
+
+
+
+```{r}
+data_person2 <- subset(data_person, select = c("ResponseId", "UX1_1", "UX1_2", "UX1_3", "UX1_4", "Rel_1", "Rel_2", "Rel_3", "Rel_4", "Rel_5", "Group"))
+```
+
+
+```{r}
+# Creating dummy variable for EDUCATION
+data_person2$UX1_1 <-
+  case_when(
+    data_person2$UX1_1 == "Strongly disagree" ~ 1,
+    data_person2$UX1_1 == "Disagree" ~ 2,
+    data_person2$UX1_1 == "Somewhat disagree" ~ 3,
+    data_person2$UX1_1 == "Neither agree nor disagree" ~ 4,
+    data_person2$UX1_1 == "Somewhat agree" ~ 5,
+    data_person2$UX1_1 == "Agree" ~ 6,
+    data_person2$UX1_1 == "Strongly agree" ~ 7)
+```
+
+
+```{r}
+# Creating dummy variable for EDUCATION
+data_person2$UX1_2 <-
+  case_when(
+    data_person2$UX1_2 == "Strongly disagree" ~ 1,
+    data_person2$UX1_2 == "Disagree" ~ 2,
+    data_person2$UX1_2 == "Somewhat disagree" ~ 3,
+    data_person2$UX1_2 == "Neither agree nor disagree" ~ 4,
+    data_person2$UX1_2 == "Somewhat agree" ~ 5,
+    data_person2$UX1_2 == "Agree" ~ 6,
+    data_person2$UX1_2 == "Strongly agree" ~ 7)
+```
+
+
+```{r}
+# Creating dummy variable for EDUCATION
+data_person2$UX1_3 <-
+  case_when(
+    data_person2$UX1_3 == "Strongly disagree" ~ 1,
+    data_person2$UX1_3 == "Disagree" ~ 2,
+    data_person2$UX1_3 == "Somewhat disagree" ~ 3,
+    data_person2$UX1_3 == "Neither agree nor disagree" ~ 4,
+    data_person2$UX1_3 == "Somewhat agree" ~ 5,
+    data_person2$UX1_3 == "Agree" ~ 6,
+    data_person2$UX1_3 == "Strongly agree" ~ 7)
+```
+
+
+```{r}
+# Creating dummy variable for EDUCATION
+data_person2$UX1_4 <-
+  case_when(
+    data_person2$UX1_4 == "Strongly disagree" ~ 1,
+    data_person2$UX1_4 == "Disagree" ~ 2,
+    data_person2$UX1_4 == "Somewhat disagree" ~ 3,
+    data_person2$UX1_4 == "Neither agree nor disagree" ~ 4,
+    data_person2$UX1_4 == "Somewhat agree" ~ 5,
+    data_person2$UX1_4 == "Agree" ~ 6,
+    data_person2$UX1_4 == "Strongly agree" ~ 7)
+```
+
+
+```{r}
+# Creating dummy variable for EDUCATION
+data_person2$Rel_1 <-
+  case_when(
+    data_person2$Rel_1 == "Strongly disagree" ~ 1,
+    data_person2$Rel_1 == "Disagree" ~ 2,
+    data_person2$Rel_1 == "Somewhat disagree" ~ 3,
+    data_person2$Rel_1 == "Neither agree nor disagree" ~ 4,
+    data_person2$Rel_1 == "Somewhat agree" ~ 5,
+    data_person2$Rel_1 == "Agree" ~ 6,
+    data_person2$Rel_1 == "Strongly agree" ~ 7)
+```
+
+
+```{r}
+# Creating dummy variable for EDUCATION
+data_person2$Rel_2 <-
+  case_when(
+    data_person2$Rel_2 == "Strongly disagree" ~ 1,
+    data_person2$Rel_2 == "Disagree" ~ 2,
+    data_person2$Rel_2 == "Somewhat disagree" ~ 3,
+    data_person2$Rel_2 == "Neither agree nor disagree" ~ 4,
+    data_person2$Rel_2 == "Somewhat agree" ~ 5,
+    data_person2$Rel_2 == "Agree" ~ 6,
+    data_person2$Rel_2 == "Strongly agree" ~ 7)
+```
+
+
+```{r}
+# Creating dummy variable for EDUCATION
+data_person2$Rel_3 <-
+  case_when(
+    data_person2$Rel_3 == "Strongly disagree" ~ 1,
+    data_person2$Rel_3 == "Disagree" ~ 2,
+    data_person2$Rel_3 == "Somewhat disagree" ~ 3,
+    data_person2$Rel_3 == "Neither agree nor disagree" ~ 4,
+    data_person2$Rel_3 == "Somewhat agree" ~ 5,
+    data_person2$Rel_3 == "Agree" ~ 6,
+    data_person2$Rel_3 == "Strongly agree" ~ 7)
+```
+
+
+```{r}
+# Creating dummy variable for EDUCATION
+data_person2$Rel_4 <-
+  case_when(
+    data_person2$Rel_4 == "Strongly disagree" ~ 1,
+    data_person2$Rel_4 == "Disagree" ~ 2,
+    data_person2$Rel_4 == "Somewhat disagree" ~ 3,
+    data_person2$Rel_4 == "Neither agree nor disagree" ~ 4,
+    data_person2$Rel_4 == "Somewhat agree" ~ 5,
+    data_person2$Rel_4 == "Agree" ~ 6,
+    data_person2$Rel_4 == "Strongly agree" ~ 7)
+```
+
+
+```{r}
+# Creating dummy variable for EDUCATION
+data_person2$Rel_5 <-
+  case_when(
+    data_person2$Rel_5 == "Strongly disagree" ~ 1,
+    data_person2$Rel_5 == "Disagree" ~ 2,
+    data_person2$Rel_5 == "Somewhat disagree" ~ 3,
+    data_person2$Rel_5 == "Neither agree nor disagree" ~ 4,
+    data_person2$Rel_5 == "Somewhat agree" ~ 5,
+    data_person2$Rel_5 == "Agree" ~ 6,
+    data_person2$Rel_5 == "Strongly agree" ~ 7)
+```
+
+
+```{r}
+# -- Bulding Control Scales -- ##
+# mean perceived usefulness
+data_person2$Usefulness<- with(data_person2, rowMeans(cbind(UX1_1, UX1_2, UX1_3, UX1_4), na.rm = T))
+# mean perceived reliability
+data_person2$Reliability<- with(data_person2, rowMeans(cbind(Rel_1, Rel_2, Rel_3, Rel_4, Rel_5), na.rm = T))
+
+```
+
+
+```{r}
+data_person2$bar <- ifelse(data_person2$Group == "AI_bars",1,0)
+```
+
+
+```{r}
+mean(data_person2$Usefulness)
+median(data_person2$Usefulness)
+sd(data_person2$Usefulness)
+```
+
+
+```{r}
+mean(data_person2$Reliability)
+median(data_person2$Reliability)
+sd(data_person2$Reliability)
+```
+
+```{r}
+t.test(data_person2$Reliability, data_person2$Usefulness)
+cohen.d(data_person2$Reliability, data_person2$Usefulness)
+```
+
+
+
+```{r}
+summary_statistics10 <- data_person2 %>%
+  group_by(bar) %>%
+  get_summary_stats(., type = "full")
+```
+
+
+
